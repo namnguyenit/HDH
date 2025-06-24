@@ -38,13 +38,4 @@ int_bottom:
     push (interruptNum)
     call _ZN16InterruptManager15HandleInterruptEhj
 
-    movl %eax, %esp
-
-    popl %gs
-    popl %fs
-    popl %es
-    popl %ds
-    popa
-
-_ZN16InterruptManager22IgnoreInterruptRequestEv:
-    iret
+.section .note.GNU-stack,"",@progbits

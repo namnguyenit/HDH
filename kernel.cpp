@@ -2,17 +2,22 @@
 #include "gdt.h"
 #include "interrupts.h"
 
-void printf(char* str)
+// Hàm đọc 1 byte từ cổng I/O (chuẩn x86)
+static inline uint8_t inb(uint16_t port) {
+    uint8_t result;
+    asm volatile ("inb %1, %0" : "=a"(result) : "Nd"(port));
+    return result;
+}
+
+// Biến vị trí con trỏ toàn cục cho file
+static uint8_t x = 0, y = 0;
+
+void printf(const char* str)
 {
-    // GPU reads from address 0xb8000 what to write to the screen
-    // With variable type 'short' we group 2 bytes together
-    // First byte is of background/foreground (4 bits each), and other byte for character
     uint16_t* VideoMemory = (uint16_t*)0xb8000;
-    static uint8_t x = 0, y = 0;
 
     for (int i = 0; str[i] != '\0'; ++i)
     {
-        // Go to the new row if you come to the new line character
         if (str[i] == '\n')
         {
             x = 0;
@@ -20,18 +25,17 @@ void printf(char* str)
         }
         else 
         {
-            // Set character to low-byte of the element and keep old value of high-byte
             VideoMemory[80 * y + x] = (VideoMemory[80 * y + x] & 0xFF00) | str[i];
             ++x;
         }
         
-        if (x >= 80) // We reached end of the line
+        if (x >= 80)
         {
             ++y;
             x = 0;
         }
 
-        if (y >= 25) // We reached end of the screen, clear it and start from beginning
+        if (y >= 25)
         {
             for (y = 0; y < 25; ++y)
                 for (x = 0; x < 80; ++x)
@@ -41,7 +45,6 @@ void printf(char* str)
             x = 0;
         }
     }
-
 }
 
 typedef void (*constructor)();
@@ -54,16 +57,217 @@ extern "C" void callConstructors()
         (*i)();
 }
 
+// === THAY ĐỔI: Thêm dấu '-' vào bảng scan code ===
+// Scan code cho '-' là 0x0C
+const char scancode_to_ascii[128] = {
+    0,  27, '1','2','3','4','5','6','7','8','9','0','-',0,8,0,      // 0x00 - 0x0F (0x0C là '-', 0x0E là Backspace)
+    0,0,0,0,0,0,0,0,0,0,0,0,'\n',0,0,0,                         // 0x10 - 0x1F
+    0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,                            // 0x20 - 0x2F
+    0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,                            // 0x30 - 0x3F
+    0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,                            // 0x40 - 0x4F
+    0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,                            // 0x50 - 0x5F
+    0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,                            // 0x60 - 0x6F
+    0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0                             // 0x70 - 0x7F
+};
+
+char getch() {
+    char c = 0;
+    while (c == 0) {
+        if ((inb(0x64) & 1) != 0) {
+            uint8_t sc = inb(0x60);
+            if (sc < 128) {
+                c = scancode_to_ascii[sc];
+            }
+        }
+    }
+    return c;
+}
+
+// === THAY ĐỔI: Cập nhật input_number để xử lý số âm ===
+int input_number() {
+    char buffer[16];
+    int i = 0;
+    while (1) {
+        char c = getch();
+
+        if (c == '\n') {
+            buffer[i] = '\0';
+            printf("\n");
+            break;
+        } 
+        else if (c == 8) { // Backspace
+            if (i > 0) {
+                i--;
+                x--;
+                uint16_t* VideoMemory = (uint16_t*)0xb8000;
+                VideoMemory[80 * y + x] = (VideoMemory[80 * y + x] & 0xFF00) | ' ';
+            }
+        }
+        else if (c == '-' && i == 0) { // Chỉ chấp nhận dấu '-' ở đầu
+            buffer[i++] = c;
+            char s[2] = {c, 0};
+            printf(s);
+        }
+        else if (c >= '0' && c <= '9' && i < 15) { // Phím số
+            buffer[i++] = c;
+            char s[2] = {c, 0};
+            printf(s);
+        }
+    }
+
+    // Chuyển đổi chuỗi sang số nguyên, có xử lý dấu âm
+    int num = 0;
+    int start_index = 0;
+    int is_negative = 0;
+
+    if (buffer[0] == '-') {
+        is_negative = 1;
+        start_index = 1;
+    }
+
+    for (int j = start_index; buffer[j] != '\0'; ++j) {
+        num = num * 10 + (buffer[j] - '0');
+    }
+
+    if (is_negative) {
+        num = -num;
+    }
+
+    return num;
+}
+
+
+void printf_int(int num) {
+    char out[16];
+    int idx = 15;
+    out[idx--] = '\0';
+    if (num == 0) out[idx--] = '0';
+    int is_negative = 0;
+    if (num < 0) {
+        is_negative = 1;
+        num = -num;
+    }
+    while (num > 0 && idx >= 0) {
+        out[idx--] = '0' + (num % 10);
+        num /= 10;
+    }
+    if (is_negative && idx >= 0) out[idx--] = '-';
+    printf(&out[idx+1]);
+}
+
+uint32_t isqrt(uint32_t n) {
+    if (n == 0) return 0;
+    uint32_t low = 1;
+    uint32_t high = n;
+    uint32_t result = 1;
+    while (low <= high) {
+        uint32_t mid = low + (high - low) / 2;
+        if (mid > n / mid) {
+            high = mid - 1;
+        } else {
+            result = mid;
+            low = mid + 1;
+        }
+    }
+    return result;
+}
+
 extern "C" void kernelMain(void* multibootStruct, uint32_t magicNum)
 {
-    printf("Hello world\n");
-    printf("This is my OS");
+   
+    
+    printf("he so a: ");
+    int a = input_number();
+
+    printf("he so b: ");
+    int b = input_number();
+
+    printf("he so c: ");
+    int c = input_number();
+
+    printf("Phuong trinh: ");
+    printf_int(a);
+    printf("x^2 + ");
+    printf_int(b);
+    printf("x + ");
+    printf_int(c);
+    printf(" = 0\n");
+
+    if (a == 0) {
+        printf("phuong trinh bac nhat.\n");
+        if (b == 0) {
+            if (c == 0) {
+                printf("phuong trinh co vo so nghiem.\n");
+            } else {
+                printf("phuong trinh vo nghiem.\n");
+            }
+        } else {
+            printf("phuong trinh co mot nghiem:\nx = ");
+            if ((-c) % b == 0) {
+                printf_int((-c) / b);
+            } else {
+                printf_int(-c);
+                printf("/");
+                printf_int(b);
+            }
+            printf("\n");
+        }
+    } else {
+        
+        //  giá trị tối đa của b nên là khoảng 46340.
+        int delta = b*b - 4*a*c;
+        printf("Delta = ");
+        printf_int(delta);
+        printf("\n");
+
+        if (delta < 0) {
+            printf("Phuong trinh vo nghiem.\n");
+        } else if (delta == 0) {
+            printf("Phuong trinh co nghiem kep:\nx = ");
+            if ((-b) % (2*a) == 0) {
+                printf_int((-b) / (2*a));
+            } else {
+                printf_int(-b);
+                printf("/");
+                printf_int(2*a);
+            }
+            printf("\n");
+        } else {
+            uint32_t sqrt_delta = isqrt(delta);
+            
+                printf("Phuong trinh co 2 nghiem nguyen phan biet:\n");
+                
+                printf("x1 = ");
+                if ((-b + sqrt_delta) % (2*a) == 0) {
+                    printf_int((-b + (int)sqrt_delta) / (2*a));
+                } else {
+                    printf("(");
+                    printf_int(-b);
+                    printf(" + ");
+                    printf_int(sqrt_delta);
+                    printf(") / ");
+                    printf_int(2*a);
+                }
+                printf("\n");
+                
+                printf("x2 = ");
+                if ((-b - (int)sqrt_delta) % (2*a) == 0) {
+                    printf_int((-b - (int)sqrt_delta) / (2*a));
+                } else {
+                    printf("(");
+                    printf_int(-b);
+                    printf(" - ");
+                    printf_int(sqrt_delta);
+                    printf(") / ");
+                    printf_int(2*a);
+                }
+                printf("\n");
+            
+        }
+    }
 
     GlobalDescriptorTable gdt;
     InterruptManager interrupts(&gdt);
-
-    // Here init hardware
-
     interrupts.Activate();
 
     while (true);

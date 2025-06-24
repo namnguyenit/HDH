@@ -30,3 +30,5 @@ _stop:
 .space 2*1024*1024
 
 kernel_stack:
+
+.section .note.GNU-stack,"",@progbits

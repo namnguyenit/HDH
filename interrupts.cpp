@@ -1,6 +1,6 @@
 #include "interrupts.h"
 
-void printf(char* str);
+void printf(const char* str);
 
 InterruptManager::GateDescriptor InterruptManager::interruptDescriptorTable[256];
 
@@ -71,4 +71,8 @@ InterruptManager::~InterruptManager()
 void InterruptManager::Activate()
 {
     asm("sti");
+}
+
+void InterruptManager::IgnoreInterruptRequest() {
+    // Hàm này có thể để trống nếu không cần xử lý gì
 }
