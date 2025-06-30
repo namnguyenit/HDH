@@ -57,13 +57,13 @@ extern "C" void callConstructors()
         (*i)();
 }
 
-// === THAY ĐỔI: Thêm dấu '-' vào bảng scan code ===
+
 // Scan code cho '-' là 0x0C
 const char scancode_to_ascii[128] = {
-    0,  27, '1','2','3','4','5','6','7','8','9','0','-',0,8,0,      // 0x00 - 0x0F (0x0C là '-', 0x0E là Backspace)
-    0,0,0,0,0,0,0,0,0,0,0,0,'\n',0,0,0,                         // 0x10 - 0x1F
-    0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,                            // 0x20 - 0x2F
-    0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,                            // 0x30 - 0x3F
+    0,  27, '1','2','3','4','5','6','7','8','9','0','-',0,8,0,      // 0x00 - 0x0F
+    'q','w','e','r','t','y','u','i','o','p','[',']','\n',0,'a','s', // 0x10 - 0x1F ('y' at 0x15)
+    'd','f','g','h','j','k','l',';',0,0,0,'\\','z','x','c','v',     // 0x20 - 0x2F
+    'b','n','m',',','.','/',0,0,0,' ',0,0,0,0,0,0,                 // 0x30 - 0x3F ('n' at 0x31)
     0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,                            // 0x40 - 0x4F
     0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,                            // 0x50 - 0x5F
     0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,                            // 0x60 - 0x6F
@@ -83,7 +83,7 @@ char getch() {
     return c;
 }
 
-// === THAY ĐỔI: Cập nhật input_number để xử lý số âm ===
+
 int input_number() {
     char buffer[16];
     int i = 0;
@@ -172,69 +172,92 @@ uint32_t isqrt(uint32_t n) {
     return result;
 }
 
+void clear_screen()
+{
+    // Con trỏ tới bộ nhớ video
+    uint16_t* VideoMemory = (uint16_t*)0xb8000;
+    for (y = 0; y < 25; ++y)
+    {
+        for (x = 0; x < 80; ++x)
+        {
+            // Ghi một khoảng trắng với màu mặc định
+            VideoMemory[80 * y + x] = (VideoMemory[80 * y + x] & 0xFF00) | ' ';
+        }
+    }
+    // Đưa con trỏ về vị trí đầu màn hình
+    x = 0;
+    y = 0;
+}
+
+
 extern "C" void kernelMain(void* multibootStruct, uint32_t magicNum)
 {
-   
+    GlobalDescriptorTable gdt;
+    InterruptManager interrupts(&gdt);
+
     
-    printf("he so a: ");
-    int a = input_number();
-
-    printf("he so b: ");
-    int b = input_number();
-
-    printf("he so c: ");
-    int c = input_number();
-
-    printf("Phuong trinh: ");
-    printf_int(a);
-    printf("x^2 + ");
-    printf_int(b);
-    printf("x + ");
-    printf_int(c);
-    printf(" = 0\n");
-
-    if (a == 0) {
-        printf("phuong trinh bac nhat.\n");
-        if (b == 0) {
-            if (c == 0) {
-                printf("phuong trinh co vo so nghiem.\n");
-            } else {
-                printf("phuong trinh vo nghiem.\n");
-            }
-        } else {
-            printf("phuong trinh co mot nghiem:\nx = ");
-            if ((-c) % b == 0) {
-                printf_int((-c) / b);
-            } else {
-                printf_int(-c);
-                printf("/");
-                printf_int(b);
-            }
-            printf("\n");
-        }
-    } else {
+    while(true)
+    {
         
-        //  giá trị tối đa của b nên là khoảng 46340.
-        int delta = b*b - 4*a*c;
-        printf("Delta = ");
-        printf_int(delta);
-        printf("\n");
+        clear_screen();
 
-        if (delta < 0) {
-            printf("Phuong trinh vo nghiem.\n");
-        } else if (delta == 0) {
-            printf("Phuong trinh co nghiem kep:\nx = ");
-            if ((-b) % (2*a) == 0) {
-                printf_int((-b) / (2*a));
+        
+        printf("he so a: ");
+        int a = input_number();
+
+        printf("he so b: ");
+        int b = input_number();
+
+        printf("he so c: ");
+        int c = input_number();
+
+        printf("Phuong trinh: ");
+        printf_int(a);
+        printf("x^2 + ");
+        printf_int(b);
+        printf("x + ");
+        printf_int(c);
+        printf(" = 0\n");
+
+        if (a == 0) {
+            printf("phuong trinh bac nhat.\n");
+            if (b == 0) {
+                if (c == 0) {
+                    printf("phuong trinh co vo so nghiem.\n");
+                } else {
+                    printf("phuong trinh vo nghiem.\n");
+                }
             } else {
-                printf_int(-b);
-                printf("/");
-                printf_int(2*a);
+                printf("phuong trinh co mot nghiem:\nx = ");
+                if ((-c) % b == 0) {
+                    printf_int((-c) / b);
+                } else {
+                    printf_int(-c);
+                    printf("/");
+                    printf_int(b);
+                }
+                printf("\n");
             }
-            printf("\n");
         } else {
-            uint32_t sqrt_delta = isqrt(delta);
-            
+            int delta = b*b - 4*a*c;
+            printf("Delta = ");
+            printf_int(delta);
+            printf("\n");
+
+            if (delta < 0) {
+                printf("Phuong trinh vo nghiem.\n");
+            } else if (delta == 0) {
+                printf("Phuong trinh co nghiem kep:\nx = ");
+                if ((-b) % (2*a) == 0) {
+                    printf_int((-b) / (2*a));
+                } else {
+                    printf_int(-b);
+                    printf("/");
+                    printf_int(2*a);
+                }
+                printf("\n");
+            } else {
+                uint32_t sqrt_delta = isqrt(delta);
                 printf("Phuong trinh co 2 nghiem nguyen phan biet:\n");
                 
                 printf("x1 = ");
@@ -262,13 +285,39 @@ extern "C" void kernelMain(void* multibootStruct, uint32_t magicNum)
                     printf_int(2*a);
                 }
                 printf("\n");
-            
+            }
         }
+        
+
+
+        
+        printf("\nBan co muon tiep tuc khong? (y/n): ");
+        char choice = 0;
+        while(true)
+        {
+            choice = getch();
+            if(choice == 'y' || choice == 'Y' || choice == 'n' || choice == 'N')
+            {
+                // In ký tự người dùng vừa gõ ra màn hình
+                char s[2] = {choice, '\0'};
+                printf(s);
+                break;
+            }
+        }
+
+        if(choice == 'n' || choice == 'N')
+        {
+            break; 
+        }
+
     }
 
-    GlobalDescriptorTable gdt;
-    InterruptManager interrupts(&gdt);
+    
+    clear_screen();
+    printf("Chuong trinh da ket thuc.");
+    
+    
     interrupts.Activate();
-
     while (true);
+
 }
