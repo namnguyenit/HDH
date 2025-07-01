@@ -95,7 +95,7 @@ int input_number() {
             printf("\n");
             break;
         } 
-        else if (c == 8) { // Backspace
+        else if (c == 8) { 
             if (i > 0) {
                 i--;
                 x--;
@@ -103,7 +103,7 @@ int input_number() {
                 VideoMemory[80 * y + x] = (VideoMemory[80 * y + x] & 0xFF00) | ' ';
             }
         }
-        else if (c == '-' && i == 0) { // Chỉ chấp nhận dấu '-' ở đầu
+        else if (c == '-' && i == 0) { 
             buffer[i++] = c;
             char s[2] = {c, 0};
             printf(s);
@@ -115,7 +115,7 @@ int input_number() {
         }
     }
 
-    // Chuyển đổi chuỗi sang số nguyên, có xử lý dấu âm
+   
     int num = 0;
     int start_index = 0;
     int is_negative = 0;
@@ -200,7 +200,12 @@ extern "C" void kernelMain(void* multibootStruct, uint32_t magicNum)
     {
         
         clear_screen();
-
+        printf("+===============================================================+\n");
+        printf(" | HELLO WORLD!                                                |\n");
+        printf(" | THIS MY OS                                                  |\n");
+        printf(" | Nhom 12                                                     |\n");
+        printf(" | Student at Faculty of Computer Science, Phenikaa University |\n");
+        printf("+===============================================================+\n");
         
         printf("he so a: ");
         int a = input_number();
