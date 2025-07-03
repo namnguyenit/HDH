@@ -108,14 +108,13 @@ int input_number() {
             char s[2] = {c, 0};
             printf(s);
         }
-        else if (c >= '0' && c <= '9' && i < 15) { // Phím số
+        else if (c >= '0' && c <= '9' && i < 15) { 
             buffer[i++] = c;
             char s[2] = {c, 0};
             printf(s);
         }
     }
 
-   
     int num = 0;
     int start_index = 0;
     int is_negative = 0;
@@ -316,12 +315,7 @@ extern "C" void kernelMain(void* multibootStruct, uint32_t magicNum)
         }
 
     }
-
-    
     clear_screen();
-    printf("Chuong trinh da ket thuc.");
-    
-    
     interrupts.Activate();
     while (true);
 
